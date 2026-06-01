@@ -13,11 +13,13 @@ contexto = st.text_area("Contexto adicional (opcional)", placeholder="Ej: Marzo 
 
 if archivo is not None:
     if st.button("Generar reporte"):
-        with st.spinner("Analizando tu archivo..."):
-            df = pd.read_excel(archivo)
-            contenido = df.to_string()
+        df = pd.read_excel(archivo)
+        contenido = df.to_string()
 
-            prompt = f"""Eres un analista financiero experto. Genera un reporte ejecutivo en HTML usando EXACTAMENTE este CSS y estructura. No cambies nada del estilo.
+        progreso = st.empty()
+        progreso.info("⏳ Generando tu reporte... por favor espera.")
+
+        prompt = f"""Eres un analista experto en datos financieros y operativos. Genera un reporte ejecutivo en HTML usando EXACTAMENTE este CSS. No cambies nada del estilo.
 
 CSS FIJO OBLIGATORIO:
 <style>
@@ -44,11 +46,23 @@ body{{font-family:'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b;padding
 .badge-verde{{background:#f0fdf4;color:#16a34a}}
 </style>
 
-ESTRUCTURA DE LOS 4 BLOQUES:
-1. Salud de Liquidez — KPIs principales con clases positivo/alerta/critico
-2. Variaciones Clave — comparativas con periodos anteriores
-3. Alertas y Red Flags — lista con badges de color
-4. Recomendaciones de Acción — lista numerada con acciones concretas
+REGLAS ABSOLUTAS — OBLIGATORIAS:
+1. NUNCA inventes, supongas ni incluyas conceptos, cifras o términos que no aparezcan en los datos. Solo analiza lo que existe en el archivo.
+2. Si un dato no está disponible, omite ese punto. No lo rellenes.
+
+ANÁLISIS ADAPTATIVO — identifica el tipo de datos y adapta los 4 bloques:
+
+- Si son estados financieros o flujos de caja:
+  Bloque 1: Salud de liquidez | Bloque 2: Variaciones clave | Bloque 3: Alertas y red flags | Bloque 4: Recomendaciones
+
+- Si son gastos, costes o mantenimiento:
+  Bloque 1: Resumen de gasto total y KPIs principales | Bloque 2: Distribución por categoría y conceptos con mayor peso | Bloque 3: Alertas y desviaciones detectadas | Bloque 4: Recomendaciones de optimización
+
+- Si son ventas o ingresos:
+  Bloque 1: Rendimiento general | Bloque 2: Análisis por producto, cliente o periodo | Bloque 3: Alertas y tendencias | Bloque 4: Recomendaciones
+
+- Si son otro tipo de datos:
+  Adapta los 4 bloques al contexto real. Usa títulos descriptivos que reflejen lo que son los datos.
 
 Contexto adicional: {contexto if contexto else 'Ninguno'}
 
@@ -57,20 +71,27 @@ Datos:
 
 Devuelve SOLO el HTML completo empezando por <!DOCTYPE html>. Sin explicaciones."""
 
-            cliente = anthropic.Anthropic(api_key=API_KEY)
-            respuesta = cliente.messages.create(
-                model="claude-opus-4-5",
-                max_tokens=4000,
-                messages=[{"role": "user", "content": prompt}]
-            )
+        cliente = anthropic.Anthropic(api_key=API_KEY)
+        html_chunks = []
 
-            html = respuesta.content[0].text
-            html = html.replace("```html", "").replace("```", "").strip()
-            st.success("✅ Reporte generado correctamente.")
-            st.components.v1.html(html, height=2000, scrolling=True)
-            st.download_button(
-                label="⬇️ Descargar reporte",
-                data=html,
-                file_name="reporte_financiero.html",
-                mime="text/html"
-            )
+        with cliente.messages.stream(
+            model="claude-opus-4-5",
+            max_tokens=4000,
+            messages=[{"role": "user", "content": prompt}]
+        ) as stream:
+            for i, text in enumerate(stream.text_stream):
+                html_chunks.append(text)
+                if i % 50 == 0:
+                    progreso.info(f"⏳ Generando tu reporte... {len(''.join(html_chunks))} caracteres procesados")
+
+        progreso.empty()
+        html = "".join(html_chunks)
+        html = html.replace("```html", "").replace("```", "").strip()
+        st.success("✅ Reporte generado correctamente.")
+        st.components.v1.html(html, height=2000, scrolling=True)
+        st.download_button(
+            label="⬇️ Descargar reporte",
+            data=html,
+            file_name="reporte_financiero.html",
+            mime="text/html"
+        )
