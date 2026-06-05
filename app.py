@@ -75,7 +75,7 @@ Devuelve SOLO el HTML completo empezando por <!DOCTYPE html>. Sin explicaciones.
         html_chunks = []
 
         with cliente.messages.stream(
-            model="claude-opus-4-5",
+            model="claude-sonnet-4-6",
             max_tokens=4000,
             messages=[{"role": "user", "content": prompt}]
         ) as stream:
