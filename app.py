@@ -127,6 +127,57 @@ body{font-family:'Georgia',serif;background:#ffffff;color:#111827;padding:32px}
 </style>"""
 }
 
+# ── SCRIPTS PDF (se inyectan en el <head>) ──────────────────────────────────────
+
+SCRIPTS_PDF = """
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+"""
+
+BOTON_PDF = """
+<div id="zona-pdf" style="text-align:center;margin:32px 0 8px 0">
+  <button id="btn-pdf" onclick="descargarPDF()"
+    style="background:#1e40af;color:white;border:none;padding:12px 36px;
+           border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;
+           font-family:'Segoe UI',sans-serif;box-shadow:0 2px 8px rgba(30,64,175,0.3)">
+    ⬇ Descargar PDF
+  </button>
+</div>
+<script>
+async function descargarPDF() {
+  const btn = document.getElementById('btn-pdf');
+  const zona = document.getElementById('zona-pdf');
+  btn.textContent = 'Generando PDF...';
+  btn.disabled = true;
+  zona.style.display = 'none';
+  try {
+    const { jsPDF } = window.jspdf;
+    const canvas = await html2canvas(document.body, {scale: 2, useCORS: true, logging: false});
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+    heightLeft -= pdfHeight;
+    while (heightLeft > 0) {
+      position -= pdfHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+      heightLeft -= pdfHeight;
+    }
+    pdf.save('reporte_financiero.pdf');
+  } finally {
+    zona.style.display = '';
+    btn.textContent = '⬇ Descargar PDF';
+    btn.disabled = false;
+  }
+}
+</script>
+"""
+
 # ── UI ──────────────────────────────────────────────────────────────────────────
 
 archivo = st.file_uploader("Sube tu archivo Excel", type=["xlsx", "xls"])
@@ -186,20 +237,18 @@ if archivo is not None:
         bloque_graficos = ""
         if incluir_graficos:
             bloque_graficos = """
-GRÁFICOS CON CHART.JS — OBLIGATORIO si se piden gráficos:
+GRÁFICOS CON CHART.JS:
 - Añade <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> en el <head>
-- Incluye entre 1 y 3 gráficos según los datos disponibles. Elige el tipo más apropiado:
-  * Datos temporales (meses, trimestres, años) → gráfico de líneas o barras
-  * Categorías con valores comparables → gráfico de barras horizontales o verticales
-  * Distribución porcentual → gráfico de dona
-- Coloca cada gráfico en un div con clase .grafico-container, con un h3 descriptivo dentro
-- Dentro del .grafico-container usa un div.grafico-wrapper que contenga el canvas
-- Cada canvas debe tener un id único: grafico1, grafico2, grafico3
-- El JavaScript debe ir al final del <body>, antes de </body>
-- En el JavaScript usa: new Chart(document.getElementById('grafico1'), {...})
+- Incluye entre 1 y 3 gráficos según los datos disponibles:
+  * Datos temporales (meses, trimestres) → líneas o barras
+  * Categorías comparables → barras verticales u horizontales
+  * Distribución porcentual → dona
+- Cada gráfico en un div.grafico-container con h3 descriptivo y div.grafico-wrapper con canvas dentro
+- IDs únicos para cada canvas: grafico1, grafico2, grafico3
+- JavaScript al final del <body>
 - Colores: ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316']
-- Usa SOLO datos que aparezcan en el Excel. No inventes valores.
-- Configura los gráficos con: responsive: true, maintainAspectRatio: false
+- SOLO datos reales del Excel. Sin inventar valores.
+- Configuración: responsive:true, maintainAspectRatio:false
 """
 
         progreso = st.empty()
@@ -207,12 +256,11 @@ GRÁFICOS CON CHART.JS — OBLIGATORIO si se piden gráficos:
 
         prompt = f"""Eres un analista experto en datos financieros y operativos. Genera un reporte ejecutivo en HTML.
 
-CLASES HTML OBLIGATORIAS — úsalas exactamente, sin estilos inline ni bloques <style>:
-- .header → cabecera con h1 (nombre empresa) y .meta (fecha · tipo)
-- .seccion → cada bloque del análisis con h2 como título
+CLASES HTML OBLIGATORIAS — sin estilos inline ni bloques <style>:
+- .header con h1 (nombre empresa) y .meta (fecha · tipo)
+- .seccion con h2 como título de cada bloque
 - .grid → contenedor de KPIs
-- .kpi con .label, .valor, .detalle → cada indicador numérico
-- Clase de estado en el .kpi: .positivo / .alerta / .critico / .neutro
+- .kpi con .label, .valor, .detalle + clase de estado: .positivo / .alerta / .critico / .neutro
 - .lista + li → listas de puntos
 - .badge .badge-verde / .badge-amarillo / .badge-rojo → etiquetas
 
@@ -262,18 +310,24 @@ Devuelve SOLO el HTML completo empezando por <!DOCTYPE html>. Sin explicaciones.
         # Quitar cualquier <style> que la IA haya incluido
         html = re.sub(r'<style>.*?</style>', '', html, flags=re.DOTALL)
 
-        # Inyectar el CSS de la plantilla elegida
+        # Inyectar CSS de la plantilla + scripts PDF en el <head>
         css = CSS_PLANTILLAS[plantilla]
         if "<head>" in html:
-            html = html.replace("<head>", f"<head>\n{css}", 1)
+            html = html.replace("<head>", f"<head>\n{css}\n{SCRIPTS_PDF}", 1)
         else:
-            html = html.replace("<!DOCTYPE html>", f"<!DOCTYPE html>\n<head>{css}</head>", 1)
+            html = html.replace("<!DOCTYPE html>", f"<!DOCTYPE html>\n<head>{css}{SCRIPTS_PDF}</head>", 1)
+
+        # Inyectar botón PDF antes del cierre del body
+        if "</body>" in html:
+            html = html.replace("</body>", f"{BOTON_PDF}\n</body>", 1)
+        else:
+            html += BOTON_PDF
 
         st.success("✅ Reporte generado correctamente.")
-        alto = 3500 if incluir_graficos else 2000
+        alto = 3500 if incluir_graficos else 2200
         st.components.v1.html(html, height=alto, scrolling=True)
         st.download_button(
-            label="⬇️ Descargar reporte",
+            label="⬇️ Descargar HTML",
             data=html,
             file_name="reporte_financiero.html",
             mime="text/html"
