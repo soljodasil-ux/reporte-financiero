@@ -14,6 +14,34 @@ API_KEY = st.secrets["ANTHROPIC_API_KEY"]
 
 CSS_PLANTILLAS = {
 
+    "Dashboard": """<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:#f0f4f8;color:#1a202c;padding:24px}
+.header{background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;padding:24px 32px;border-radius:16px;margin-bottom:24px;box-shadow:0 4px 20px rgba(59,130,246,0.3)}
+.header h1{font-size:24px;font-weight:700}
+.header .meta{font-size:13px;opacity:0.85;margin-top:6px}
+.seccion{background:white;border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.06)}
+.seccion h2{font-size:14px;font-weight:700;color:#1e40af;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #eff6ff;text-transform:uppercase;letter-spacing:0.5px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+.kpi{background:linear-gradient(135deg,#f8faff,#eff6ff);border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+.kpi .label{font-size:11px;text-transform:uppercase;color:#64748b;margin-bottom:10px;letter-spacing:0.5px;font-weight:600}
+.kpi .valor{font-size:28px;font-weight:800}
+.kpi .detalle{font-size:12px;color:#94a3b8;margin-top:6px}
+.positivo .valor{color:#16a34a}
+.alerta .valor{color:#d97706}
+.critico .valor{color:#dc2626}
+.neutro .valor{color:#1e40af}
+.lista{list-style:none}
+.lista li{padding:12px 0;border-bottom:1px solid #f1f5f9;font-size:14px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-rojo{background:#fef2f2;color:#dc2626}
+.badge-amarillo{background:#fffbeb;color:#d97706}
+.badge-verde{background:#f0fdf4;color:#16a34a}
+.grafico-container{background:white;border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.06)}
+.grafico-container h3{font-size:13px;font-weight:700;color:#1e40af;margin-bottom:20px;text-transform:uppercase;letter-spacing:0.5px}
+.grafico-wrapper{position:relative;height:280px}
+</style>""",
+
     "Profesional": """<style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b;padding:24px}
@@ -37,6 +65,9 @@ body{font-family:'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b;padding:
 .badge-rojo{background:#fef2f2;color:#dc2626}
 .badge-amarillo{background:#fefce8;color:#ca8a04}
 .badge-verde{background:#f0fdf4;color:#16a34a}
+.grafico-container{background:#f8fafc;border-radius:8px;padding:20px;margin-bottom:16px;border:1px solid #e2e8f0}
+.grafico-container h3{font-size:14px;font-weight:600;color:#1e3a5f;margin-bottom:16px}
+.grafico-wrapper{position:relative;height:280px}
 </style>""",
 
     "Ejecutivo oscuro": """<style>
@@ -62,6 +93,9 @@ body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:
 .badge-rojo{background:#450a0a;color:#ef4444}
 .badge-amarillo{background:#451a03;color:#f59e0b}
 .badge-verde{background:#052e16;color:#22c55e}
+.grafico-container{background:#0f172a;border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid #334155}
+.grafico-container h3{font-size:14px;font-weight:600;color:#93c5fd;margin-bottom:16px}
+.grafico-wrapper{position:relative;height:280px}
 </style>""",
 
     "Minimalista": """<style>
@@ -87,8 +121,10 @@ body{font-family:'Georgia',serif;background:#ffffff;color:#111827;padding:32px}
 .badge-rojo{background:#fef2f2;color:#dc2626}
 .badge-amarillo{background:#fffbeb;color:#d97706}
 .badge-verde{background:#f0fdf4;color:#16a34a}
+.grafico-container{background:#f9fafb;padding:20px;margin-bottom:24px}
+.grafico-container h3{font-size:12px;font-weight:600;color:#6b7280;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px}
+.grafico-wrapper{position:relative;height:260px}
 </style>"""
-
 }
 
 # ── UI ──────────────────────────────────────────────────────────────────────────
@@ -116,8 +152,10 @@ if archivo is not None:
 
     plantilla = st.selectbox(
         "Estilo visual",
-        ["Profesional", "Ejecutivo oscuro", "Minimalista"]
+        ["Dashboard", "Profesional", "Ejecutivo oscuro", "Minimalista"]
     )
+
+    incluir_graficos = st.checkbox("Incluir gráficos", value=True)
 
     contexto = st.text_area(
         "Contexto adicional (opcional)",
@@ -130,7 +168,7 @@ if archivo is not None:
 
         instruccion_tipo = {
             "Reporte completo": "Genera un análisis completo con los 4 bloques adaptados al tipo de datos.",
-            "Solo liquidez": "Centra el análisis exclusivamente en la salud de liquidez y flujo de caja. Ignora otros aspectos.",
+            "Solo liquidez": "Centra el análisis exclusivamente en la salud de liquidez y flujo de caja.",
             "Comparativa de períodos": "Identifica y compara los períodos disponibles en los datos.",
             "Otro": "Adapta el análisis al tipo de datos disponibles."
         }
@@ -145,25 +183,41 @@ if archivo is not None:
         empresa_header = nombre_empresa if nombre_empresa else "Análisis Financiero"
         fecha_hoy = date.today().strftime("%d/%m/%Y")
 
+        bloque_graficos = ""
+        if incluir_graficos:
+            bloque_graficos = """
+GRÁFICOS CON CHART.JS — OBLIGATORIO si se piden gráficos:
+- Añade <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> en el <head>
+- Incluye entre 1 y 3 gráficos según los datos disponibles. Elige el tipo más apropiado:
+  * Datos temporales (meses, trimestres, años) → gráfico de líneas o barras
+  * Categorías con valores comparables → gráfico de barras horizontales o verticales
+  * Distribución porcentual → gráfico de dona
+- Coloca cada gráfico en un div con clase .grafico-container, con un h3 descriptivo dentro
+- Dentro del .grafico-container usa un div.grafico-wrapper que contenga el canvas
+- Cada canvas debe tener un id único: grafico1, grafico2, grafico3
+- El JavaScript debe ir al final del <body>, antes de </body>
+- En el JavaScript usa: new Chart(document.getElementById('grafico1'), {...})
+- Colores: ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316']
+- Usa SOLO datos que aparezcan en el Excel. No inventes valores.
+- Configura los gráficos con: responsive: true, maintainAspectRatio: false
+"""
+
         progreso = st.empty()
         progreso.info("⏳ Generando tu reporte... por favor espera.")
 
         prompt = f"""Eres un analista experto en datos financieros y operativos. Genera un reporte ejecutivo en HTML.
 
-CLASES HTML OBLIGATORIAS — úsalas exactamente así, sin añadir estilos inline ni bloques <style>:
-- .header → cabecera principal
-- .header h1 → nombre de la empresa
-- .header .meta → línea secundaria con fecha y tipo de reporte
-- .seccion → cada bloque del análisis
-- .seccion h2 → título del bloque
+CLASES HTML OBLIGATORIAS — úsalas exactamente, sin estilos inline ni bloques <style>:
+- .header → cabecera con h1 (nombre empresa) y .meta (fecha · tipo)
+- .seccion → cada bloque del análisis con h2 como título
 - .grid → contenedor de KPIs
-- .kpi → cada indicador numérico, con .label, .valor y .detalle dentro
-- Clase de estado en el .kpi: .positivo / .alerta / .critico / .neutro según corresponda
+- .kpi con .label, .valor, .detalle → cada indicador numérico
+- Clase de estado en el .kpi: .positivo / .alerta / .critico / .neutro
 - .lista + li → listas de puntos
-- .badge con .badge-verde / .badge-amarillo / .badge-rojo → etiquetas de estado
+- .badge .badge-verde / .badge-amarillo / .badge-rojo → etiquetas
 
-NO incluyas ningún bloque <style> en el HTML. El diseño se aplica externamente.
-
+NO incluyas ningún bloque <style>. El diseño se aplica externamente.
+{bloque_graficos}
 CONFIGURACIÓN:
 - Empresa: {empresa_header}
 - Fecha: {fecha_hoy}
@@ -172,7 +226,7 @@ CONFIGURACIÓN:
 
 REGLAS ABSOLUTAS:
 1. NUNCA inventes cifras ni conceptos que no estén en los datos.
-2. Si un dato no está disponible, omite ese punto.
+2. Si un dato no está disponible, omítelo.
 3. El header debe mostrar "{empresa_header}" en h1 y "{fecha_hoy} · {tipo_reporte}" en .meta.
 
 ANÁLISIS ADAPTATIVO:
@@ -193,7 +247,7 @@ Devuelve SOLO el HTML completo empezando por <!DOCTYPE html>. Sin explicaciones.
 
         with cliente.messages.stream(
             model="claude-sonnet-4-6",
-            max_tokens=4000,
+            max_tokens=6000,
             messages=[{"role": "user", "content": prompt}]
         ) as stream:
             for i, text in enumerate(stream.text_stream):
@@ -216,7 +270,8 @@ Devuelve SOLO el HTML completo empezando por <!DOCTYPE html>. Sin explicaciones.
             html = html.replace("<!DOCTYPE html>", f"<!DOCTYPE html>\n<head>{css}</head>", 1)
 
         st.success("✅ Reporte generado correctamente.")
-        st.components.v1.html(html, height=2000, scrolling=True)
+        alto = 3500 if incluir_graficos else 2000
+        st.components.v1.html(html, height=alto, scrolling=True)
         st.download_button(
             label="⬇️ Descargar reporte",
             data=html,
