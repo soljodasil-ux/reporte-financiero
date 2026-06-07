@@ -127,7 +127,7 @@ body{font-family:'Georgia',serif;background:#ffffff;color:#111827;padding:32px}
 </style>"""
 }
 
-# ── SCRIPTS PDF (se inyectan en el <head>) ──────────────────────────────────────
+# ── SCRIPTS Y BOTÓN PDF ─────────────────────────────────────────────────────────
 
 SCRIPTS_PDF = """
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -154,20 +154,14 @@ async function descargarPDF() {
     const { jsPDF } = window.jspdf;
     const canvas = await html2canvas(document.body, {scale: 2, useCORS: true, logging: false});
     const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const pdfWidth = 210;
     const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
-    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-    heightLeft -= pdfHeight;
-    while (heightLeft > 0) {
-      position -= pdfHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-      heightLeft -= pdfHeight;
-    }
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [pdfWidth, imgHeight]
+    });
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
     pdf.save('reporte_financiero.pdf');
   } finally {
     zona.style.display = '';
