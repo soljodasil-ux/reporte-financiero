@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import anthropic
+from datetime import date
 
 st.set_page_config(page_title="Reporte Financiero IA", page_icon="📊")
 st.title("📊 Reporte Financiero con IA")
@@ -9,12 +10,51 @@ st.write("Sube tu Excel y recibe un análisis ejecutivo en segundos.")
 API_KEY = st.secrets["ANTHROPIC_API_KEY"]
 
 archivo = st.file_uploader("Sube tu archivo Excel", type=["xlsx", "xls"])
-contexto = st.text_area("Contexto adicional (opcional)", placeholder="Ej: Marzo fue atípico por vacaciones...")
 
 if archivo is not None:
+    st.markdown("---")
+    st.subheader("Configura tu reporte")
+
+    nombre_empresa = st.text_input(
+        "Nombre de la empresa (opcional)",
+        placeholder="Ej: Distribuciones Martínez S.L."
+    )
+
+    tipo_reporte = st.selectbox(
+        "¿Qué tipo de análisis necesitas?",
+        ["Reporte completo", "Solo liquidez", "Comparativa de períodos", "Otro"]
+    )
+
+    audiencia = st.selectbox(
+        "¿Para quién es el reporte?",
+        ["Para dirección", "Para un cliente", "Para el banco", "Uso propio"]
+    )
+
+    contexto = st.text_area(
+        "Contexto adicional (opcional)",
+        placeholder="Ej: Marzo fue atípico por vacaciones, incluye una partida extraordinaria..."
+    )
+
     if st.button("Generar reporte"):
         df = pd.read_excel(archivo)
         contenido = df.to_string()
+
+        instruccion_tipo = {
+            "Reporte completo": "Genera un análisis completo con los 4 bloques adaptados al tipo de datos.",
+            "Solo liquidez": "Centra el análisis exclusivamente en la salud de liquidez y flujo de caja. Ignora otros aspectos.",
+            "Comparativa de períodos": "El usuario necesita comparar períodos. Identifica y compara los períodos disponibles en los datos.",
+            "Otro": "Adapta el análisis al tipo de datos disponibles."
+        }
+
+        instruccion_audiencia = {
+            "Para dirección": "El informe es para la dirección de la empresa. Usa lenguaje ejecutivo, conciso y orientado a decisiones.",
+            "Para un cliente": "El informe es para presentar a un cliente externo. Usa un tono profesional y explicativo.",
+            "Para el banco": "El informe es para presentar a una entidad bancaria. Resalta la solidez financiera y los indicadores clave.",
+            "Uso propio": "El informe es para uso interno. Puedes ser más técnico y detallado."
+        }
+
+        empresa_header = nombre_empresa if nombre_empresa else "Análisis Financiero"
+        fecha_hoy = date.today().strftime("%d/%m/%Y")
 
         progreso = st.empty()
         progreso.info("⏳ Generando tu reporte... por favor espera.")
@@ -27,6 +67,7 @@ CSS FIJO OBLIGATORIO:
 body{{font-family:'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b;padding:24px}}
 .header{{background:#1e3a5f;color:white;padding:24px 32px;border-radius:12px;margin-bottom:24px}}
 .header h1{{font-size:22px;font-weight:600}}
+.header .meta{{font-size:13px;opacity:0.8;margin-top:6px}}
 .seccion{{background:white;border-radius:12px;padding:24px;margin-bottom:16px;border:1px solid #e2e8f0}}
 .seccion h2{{font-size:16px;font-weight:600;color:#1e3a5f;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}}
@@ -46,9 +87,16 @@ body{{font-family:'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b;padding
 .badge-verde{{background:#f0fdf4;color:#16a34a}}
 </style>
 
+CONFIGURACIÓN DEL REPORTE:
+- Empresa: {empresa_header}
+- Fecha: {fecha_hoy}
+- Tipo de análisis: {instruccion_tipo[tipo_reporte]}
+- Audiencia: {instruccion_audiencia[audiencia]}
+
 REGLAS ABSOLUTAS — OBLIGATORIAS:
 1. NUNCA inventes, supongas ni incluyas conceptos, cifras o términos que no aparezcan en los datos. Solo analiza lo que existe en el archivo.
 2. Si un dato no está disponible, omite ese punto. No lo rellenes.
+3. El header del HTML debe mostrar: nombre "{empresa_header}" en h1, y debajo en clase "meta" la fecha {fecha_hoy} y el tipo de reporte "{tipo_reporte}".
 
 ANÁLISIS ADAPTATIVO — identifica el tipo de datos y adapta los 4 bloques:
 
