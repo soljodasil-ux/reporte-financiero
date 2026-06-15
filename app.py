@@ -326,3 +326,11 @@ Devuelve SOLO el HTML completo empezando por <!DOCTYPE html>. Sin explicaciones.
             file_name="reporte_financiero.html",
             mime="text/html"
         )
+
+# ── FEEDBACK ────────────────────────────────────────────────────────────────────
+st.markdown("---")
+st.markdown("💬 **¿Tienes un minuto?** Tu opinión nos ayuda a mejorar la herramienta.")
+st.link_button(
+    "Dejar feedback",
+    "https://docs.google.com/forms/d/e/1FAIpQLScrFclbrMlLUoDwFlAKxXEQhFpEXHxrVMIbXFOqDsIDree8tw/viewform?usp=header"
+)
